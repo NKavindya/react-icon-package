@@ -15,7 +15,7 @@ const ICONS_DIR = path.join(__dirname, '..', 'src', 'icons');
 const modifyIcon = (filePath) => {
     let content = fs.readFileSync(filePath, 'utf-8');
 
-    // 1. Modify component props to include size, color, fill, stroke, width, height, and disabled
+    // 1. Modify component props to include size, color, fill, stroke, width, height, disabled, background
     const propsType = `React.SVGProps<SVGSVGElement> & {
         size?: string | number;
         color?: string;
@@ -25,6 +25,9 @@ const modifyIcon = (filePath) => {
         height?: string | number;
         strokeWidth?: string | number;
         disabled?: boolean;
+        backgroundColor?: string;
+        backgroundShape?: 'circle' | 'rect';
+        backgroundPadding?: number;
     }`;
 
     const propsRegex = /React\.SVGProps<SVGSVGElement>/;
@@ -111,6 +114,32 @@ const modifyIcon = (filePath) => {
         });
 
         return `<${tagName}${newAttributes}>`;
+    });
+
+    // 4. Inject background shape conditionally as the first child of <svg>
+    const svgContentRegex = /(<svg[^>]*>)([\s\S]*?)(<\/svg>)/;
+    content = content.replace(svgContentRegex, (match, openTag, innerContent, closeTag) => {
+        const backgroundShapeJSX = `
+            {props.backgroundColor && props.backgroundShape === 'rect' && (
+                <rect
+                    x={props.backgroundPadding || 0}
+                    y={props.backgroundPadding || 0}
+                    width="100%"
+                    height="100%"
+                    rx="4"
+                    fill={props.backgroundColor}
+                />
+            )}
+            {props.backgroundColor && props.backgroundShape === 'circle' && (
+                <circle
+                    cx="50%"
+                    cy="50%"
+                    r="50%"
+                    fill={props.backgroundColor}
+                />
+            )}
+        `;
+        return `${openTag}\n${backgroundShapeJSX}\n${innerContent}\n${closeTag}`;
     });
 
     fs.writeFileSync(filePath, content, 'utf-8');
